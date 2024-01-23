@@ -1,0 +1,16 @@
+{
+  "version": 2,
+  "dgSpecHash": "PkzUNVdfMGVe50UbaEOQKVMEjbNQW6trv4qsdwxDOYRRLj169sukxUzdaTJnccOG1q8g3jBIg3QAGhn1Id3ayA==",
+  "success": true,
+  "projectFilePath": "C:\\Users\\rojar\\Desktop\\FHTechnikum\\3_Semester\\Swen\\mtcg_rgueler\\rgueler_mtcg.csproj",
+  "expectedPackageFiles": [
+    "C:\\Users\\rojar\\.nuget\\packages\\microsoft.extensions.dependencyinjection.abstractions\\8.0.0\\microsoft.extensions.dependencyinjection.abstractions.8.0.0.nupkg.sha512",
+    "C:\\Users\\rojar\\.nuget\\packages\\microsoft.extensions.logging.abstractions\\8.0.0\\microsoft.extensions.logging.abstractions.8.0.0.nupkg.sha512",
+    "C:\\Users\\rojar\\.nuget\\packages\\npgsql\\8.0.1\\npgsql.8.0.1.nupkg.sha512",
+    "C:\\Users\\rojar\\.nuget\\packages\\system.diagnostics.diagnosticsource\\8.0.0\\system.diagnostics.diagnosticsource.8.0.0.nupkg.sha512",
+    "C:\\Users\\rojar\\.nuget\\packages\\system.runtime.compilerservices.unsafe\\6.0.0\\system.runtime.compilerservices.unsafe.6.0.0.nupkg.sha512",
+    "C:\\Users\\rojar\\.nuget\\packages\\system.text.encodings.web\\8.0.0\\system.text.encodings.web.8.0.0.nupkg.sha512",
+    "C:\\Users\\rojar\\.nuget\\packages\\system.text.json\\8.0.0\\system.text.json.8.0.0.nupkg.sha512"
+  ],
+  "logs": []
+}
