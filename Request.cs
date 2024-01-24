@@ -122,6 +122,10 @@ namespace rgueler_mtcg
                             HandleGetDeckRequest(parsedAuthenticationToken);
                             break;
 
+                        case "GET /stats":
+                            HandleGetStatsRequest(parsedAuthenticationToken);
+                            break;
+
                         default:
                             break;
                     }
@@ -363,6 +367,18 @@ namespace rgueler_mtcg
             else response = responseMsg.GetResponseMessage(404);
         }
 
-        
+        void HandleGetStatsRequest(string parsedAuthenticationToken)
+        {
+            Response responseMsg = new Response("GETstats");
+            if (dBRepository.DoesTokenExist(parsedAuthenticationToken))
+            {
+                string output = dBRepository.GetUserStats(parsedAuthenticationToken);
+                response = responseMsg.GetResponseMessage(200) + output + "\r\n";
+            }
+            else
+            {
+                responseMsg.GetResponseMessage(401);
+            }
+        }
     }
 }

@@ -29,7 +29,6 @@ namespace rgueler_mtcg
             DBRepository dBinitRepository = new DBRepository();
             dBinitRepository.InitDB();
             //}
-            Console.WriteLine();
 
             tcpListener.Start();
             Console.WriteLine($"Server started. Listening on {ipAddress}:{port}");

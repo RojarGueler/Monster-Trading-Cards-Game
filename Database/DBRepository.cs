@@ -1,11 +1,13 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Data;
 using System.Diagnostics.Metrics;
 using System.Linq;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
 using System.Threading.Tasks;
+using System.Xml;
 using Npgsql;
 using rgueler_mtcg.GameObjects;
 using static System.Net.Mime.MediaTypeNames;
@@ -712,6 +714,51 @@ namespace rgueler_mtcg.Database
                 Console.WriteLine($"Error deserializing JSON: {ex.Message}");
             }
         }
+        public string GetUserStats(string token)
+        {
+            try
+            {
+                using (NpgsqlConnection connection = new NpgsqlConnection(connectionString))
+                {
+                    connection.Open();
 
+                    var content = new
+                    {
+                        Name = (string)null,
+                        Elo = (int)0,
+                        Wins = (int)0,
+                        Losses = (int)0
+                    };
+                    string sql = "SELECT name, elo, wins, losses FROM users WHERE token = @token;";
+                    using (NpgsqlCommand command = new NpgsqlCommand(sql, connection))
+                    {
+                        command.Parameters.AddWithValue("@token", token);
+
+                        using (NpgsqlDataReader reader = command.ExecuteReader())
+                        {
+                            if (reader.Read())
+                            {
+                                content = new
+                                {
+                                    Name = reader.IsDBNull(0) ? null : reader.GetString(0),
+                                    Elo = reader.GetInt32(1),
+                                    Wins = reader.GetInt32(2),
+                                    Losses = reader.GetInt32(3)
+                                };
+                                connection.Close();
+                                return JsonSerializer.Serialize(content, new JsonSerializerOptions { WriteIndented = true });
+                            }
+                        }
+                    }
+                }
+
+                return "{}";
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error reading user stats: {ex.Message}");
+                return "{}";
+            }
+        }
     }
 }

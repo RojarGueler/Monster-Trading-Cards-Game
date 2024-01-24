@@ -10,10 +10,8 @@ namespace rgueler_mtcg.GameObjects
     public class User
     {
         public string Username { get; set; }
-        //[JsonIgnore]
         public string Password { get; set; }
         public string Name { get; set; }
-        //[JsonIgnore]
         public string Bio { get; set; }
         public string Image { get; set; }
     }
