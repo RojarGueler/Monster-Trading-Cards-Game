@@ -38,20 +38,29 @@ namespace rgueler_mtcg
 
                 if (endIndex >= 0)
                 {
-                    Console.WriteLine(startIndex);
-                    Console.WriteLine(endIndex - startIndex);
                     return request.Substring(startIndex, endIndex - startIndex);
                 }
             }
             return null;
         }
-
         private void HandleRequest(string token)
         {
             string parsedAuthenticationToken = token;
             int indexBody = this.request.IndexOf("{");
 
             if ((request.Contains("POST /packages")) || request.Contains("PUT /deck")) indexBody = request.IndexOf("[");
+
+            string endpoint = request;
+            string[] parts = endpoint.Split(' ');
+
+            // Check if there are at least two parts
+            if (parts.Length >= 2)
+            {
+                // Concatenate the first two parts to get the result
+                endpoint = parts[0] + " " + parts[1];
+            }
+
+            Console.WriteLine("endpoint: " + endpoint);
 
             if (indexBody >= 0)
             {
@@ -64,238 +73,296 @@ namespace rgueler_mtcg
 
                 // Extract the JSON payload based on Content-Length
                 var jsonPayload = request.Substring(indexBody, contentLength);
-                Console.WriteLine("JSON Payload:");
-                Console.WriteLine(jsonPayload);
 
                 try
                 {
-                    if (request.Contains("POST /users") || request.Contains("POST /sessions"))
+                    
+                    switch (endpoint)
                     {
-                        // Parse JSON payload
-                        var userObject = JsonSerializer.Deserialize<User>(jsonPayload);
-                        Console.WriteLine(userObject);
-                        dBRepository = new DBRepository(userObject);
-                        // Check the endpoint and perform specific logic
-                        if (request.Contains("POST /users"))
-                        {
-                            Response responseMsg = new Response("users");
-                            string username = "";
-                            username = userObject.Username;
-                            if (!dBRepository.DoesUserExist(username))
-                            {
-                                dBRepository.AddUser();
-                                response = responseMsg.GetResponseMessage(201);
-                            }
-                            else response = responseMsg.GetResponseMessage(409);
+                        case "POST /users":
+                        case "POST /sessions":
+                            HandleUserAndSessionsRequests(jsonPayload);
+                            break;
 
-                        }
-                        else if (request.Contains("POST /sessions"))
-                        {
-                            Response responseMsg = new Response("sessions");
-                            if (dBRepository.IsUserLoggedIn(userObject.Username, userObject.Password))
-                            {
-                                response = responseMsg.GetResponseMessage(200) + "Token: " + userObject.Username + "-mtcgToken\r\n";
-                            }
-                            else
-                            {
-                                response = responseMsg.GetResponseMessage(401);
-                            }
-                        }
+                        case "POST /packages":
+                            HandlePackagesRequest(jsonPayload, token);
+                            break;
+
+                        case "PUT /deck":
+                            HandleDeckRequest(jsonPayload, parsedAuthenticationToken);
+                            break;
+
+                        default:
+                            
+                            break;
                     }
-                    else if (request.Contains("POST /packages"))
+
+                    if(endpoint.Contains("PUT /users")) HandlePutUserRequest(jsonPayload, parsedAuthenticationToken);
+                }
+                catch (JsonException ex)
+                {
+                    Console.WriteLine($"Error parsing JSON: {ex.Message}");
+                }
+            }else
+            {
+                try
+                {
+                    switch(endpoint)
                     {
-                        Response responsePackage = new Response("packages");
-                        if (token.Length <= 0)
-                        {
-                            response = responsePackage.GetResponseMessage(401);
-                        }
-                        else
-                        {
-                            if (token == adminToken)
-                            {
-                                // Deserialize the JSON payload into a list of cards
-                                List<Card> cards = JsonSerializer.Deserialize<List<Card>>(jsonPayload);
-                                
-                                if (dBRepository.CheckDuplicateCards(cards)) { 
-                                    response = responsePackage.GetResponseMessage(409);
-                                }
-                                else
-                                {
-                                    int packageID = dBRepository.CreatePackageID();
-                                    // Create a package
-                                    var package = new Package { PackageId = packageID, Bought = false };
+                        case "POST /transactions/packages":
+                            HandleTransactionsPackagesRequest(parsedAuthenticationToken);
+                            break;
 
-                                    // Add the cards to the package
-                                    package.Cards.AddRange(cards);
+                        case "GET /cards":
+                            HandleGetCardsRequest(parsedAuthenticationToken);
+                            break;
 
-                                    dBRepository.AddPackage(package);
+                        case "GET /deck":
+                        case "GET /deck?format=plain":
+                            HandleGetDeckRequest(parsedAuthenticationToken);
+                            break;
 
-                                    response = responsePackage.GetResponseMessage(201);
-                                }
-                            }
-                            else response = responsePackage.GetResponseMessage(403);
-                        }
+                        default:
+                            break;
                     }
-                    else if (request.Contains("PUT /deck"))
-                    {
-                        Response responseMsg = new Response("deckPUT");
-
-                        if (dBRepository.DoesTokenExist(parsedAuthenticationToken))
-                        {
-                            List<string> cardIds = JsonSerializer.Deserialize<List<string>>(jsonPayload);
-                            Console.WriteLine("cardIds: " + cardIds.Count);
-                            Console.WriteLine("cardIds: " + cardIds[0]);
-                            bool cardnotmine = false;
-                            if (cardIds.Count == 4)
-                            {
-                                for (int i = 0; i < 4; i++)
-                                {
-                                    if (dBRepository.DoesCardBelongToUser(parsedAuthenticationToken, cardIds[i]) == false) cardnotmine = true;
-                                }
-
-                                if (!cardnotmine)
-                                {
-                                    dBRepository.DeleteUserDeck(dBRepository.GetUserName(parsedAuthenticationToken));
-                                    for (int i = 0; i < 4; i++)
-                                    {
-                                        dBRepository.AddCardToUserDeck(dBRepository.GetUserName(parsedAuthenticationToken), cardIds[i]);
-                                    }
-
-                                    response = responseMsg.GetResponseMessage(200);
-                                }
-                                else response = responseMsg.GetResponseMessage(403);
-                            }
-                            else response = responseMsg.GetResponseMessage(400);
-                        }
-                        else response = responseMsg.GetResponseMessage(401);
-                    }
-                    else if (request.Contains("PUT /users"))
-                    {
-                        Response responseMsg = new Response("PUTuser");
-
-                        // Find the position of the username in the curl script
-                        int usernameStart = request.IndexOf("/users/") + "/users/".Length;
-                        int usernameEnd = request.IndexOf(' ', usernameStart);
-
-                        // Extract the username
-                        string username = request.Substring(usernameStart, usernameEnd - usernameStart);
-
-                        if (dBRepository.DoesUserExist(username))
-                        {
-                            if (dBRepository.ValidUserToken(username, parsedAuthenticationToken) || parsedAuthenticationToken == adminToken)
-                            {
-                                dBRepository.UpdateUserData(username, jsonPayload);
-
-                                response = responseMsg.GetResponseMessage(200);
-                            }
-                            else response = responseMsg.GetResponseMessage(401);
-                        }
-                        else response = responseMsg.GetResponseMessage(404);
-                    }
-                
+                    if(endpoint.Contains("GET /users")) HandleGetUserRequest(parsedAuthenticationToken);
                 }
                 catch (JsonException ex)
                 {
                     Console.WriteLine($"Error parsing JSON: {ex.Message}");
                 }
             }
-            else if (request.Contains("POST /transactions/packages"))
+        }
+
+        // Helper methods to handle specific endpoints
+        void HandleUserAndSessionsRequests(string jsonPayload)
+        {
+            // Parse JSON payload
+            var userObject = JsonSerializer.Deserialize<User>(jsonPayload);
+            Console.WriteLine(userObject);
+            dBRepository = new DBRepository(userObject);
+            // Check the endpoint and perform specific logic
+            if (request.Contains("POST /users"))
             {
-                Response responseMsg = new Response("transactions/packages");
-                List<int> packagelist = new List<int>();
-                int coins;
-                string username = dBRepository.GetUserName(parsedAuthenticationToken);
-                //Console.WriteLine("username:" + username);
-                coins = dBRepository.GetCoins(username);
-                //Console.WriteLine("coins:" + coins);
-                packagelist = dBRepository.IsAnyPackageAvailable();
-                //Console.WriteLine("packagelist:" + packagelist);
-
-                if (packagelist.Count > 0)
+                Response responseMsg = new Response("users");
+                string username = "";
+                username = userObject.Username;
+                if (!dBRepository.DoesUserExist(username))
                 {
-                    if (coins >= 5)
-                    {
-                        dBRepository.UpdateCoinsByPackage(username);
-                        dBRepository.AcquirePackage(packagelist[0], username);
-                        //Console.WriteLine("packagelist[0]:" + packagelist[0]);
-                        response = responseMsg.GetResponseMessage(200);
+                    dBRepository.AddUser();
+                    response = responseMsg.GetResponseMessage(201);
+                }
+                else response = responseMsg.GetResponseMessage(409);
 
-                        coins = dBRepository.GetCoins(username);
-                        //Console.WriteLine("coins:" + coins);
-                    }
-                    else
-                    {
-                        response = responseMsg.GetResponseMessage(403);
-                    }
+            }
+            else if (request.Contains("POST /sessions"))
+            {
+                Response responseMsg = new Response("sessions");
+                if (dBRepository.IsUserLoggedIn(userObject.Username, userObject.Password))
+                {
+                    response = responseMsg.GetResponseMessage(200) + "Token: " + userObject.Username + "-mtcgToken\r\n";
                 }
                 else
                 {
-                    response = responseMsg.GetResponseMessage(404);
+                    response = responseMsg.GetResponseMessage(401);
                 }
             }
-            else if (request.Contains("GET /cards"))
-            {
-                Response responseCards = new Response("cards");
-                
-                if (dBRepository.DoesTokenExist(parsedAuthenticationToken))
-                {
-                    string userCards = dBRepository.GetUserCardsJSON(parsedAuthenticationToken);
+        }
 
-                    if (userCards.Length > 2)
+        void HandlePackagesRequest(string jsonPayload, string token)
+        {
+            Response responsePackage = new Response("packages");
+            if (token.Length <= 0)
+            {
+                response = responsePackage.GetResponseMessage(401);
+            }
+            else
+            {
+                if (token == adminToken)
+                {
+                    // Deserialize the JSON payload into a list of cards
+                    List<Card> cards = JsonSerializer.Deserialize<List<Card>>(jsonPayload);
+
+                    if (dBRepository.CheckDuplicateCards(cards))
                     {
-                        response = responseCards.GetResponseMessage(200) + userCards + "\r\n";
+                        response = responsePackage.GetResponseMessage(409);
                     }
                     else
                     {
-                        response = responseCards.GetResponseMessage(204);
+                        int packageID = dBRepository.CreatePackageID();
+                        // Create a package
+                        var package = new Package { PackageId = packageID, Bought = false };
+
+                        // Add the cards to the package
+                        package.Cards.AddRange(cards);
+
+                        dBRepository.AddPackage(package);
+
+                        response = responsePackage.GetResponseMessage(201);
                     }
                 }
-                else response = responseCards.GetResponseMessage(401);
+                else response = responsePackage.GetResponseMessage(403);
             }
-            else if (request.Contains("GET /deck"))
+        }
+
+        void HandleDeckRequest(string jsonPayload, string parsedAuthenticationToken)
+        {
+            Response responseMsg = new Response("deckPUT");
+
+            if (dBRepository.DoesTokenExist(parsedAuthenticationToken))
             {
-                Response responseMsg = new Response("deckGET");
-                if (dBRepository.DoesTokenExist(parsedAuthenticationToken))
+                List<string> cardIds = JsonSerializer.Deserialize<List<string>>(jsonPayload);
+                Console.WriteLine("cardIds: " + cardIds.Count);
+                Console.WriteLine("cardIds: " + cardIds[0]);
+                bool cardnotmine = false;
+                if (cardIds.Count == 4)
                 {
-                    string deck = "";
-
-                    if (request.Contains("format=plain")) deck = dBRepository.GetCardsFromDeck(parsedAuthenticationToken, true);
-                    else deck = dBRepository.GetCardsFromDeck(parsedAuthenticationToken, false);
-
-                    if (deck.Length > 2)
+                    for (int i = 0; i < 4; i++)
                     {
-                        response = responseMsg.GetResponseMessage(200) + deck + "\r\n";
+                        if (dBRepository.DoesCardBelongToUser(parsedAuthenticationToken, cardIds[i]) == false) cardnotmine = true;
                     }
-                    else
+
+                    if (!cardnotmine)
                     {
-                        response = responseMsg.GetResponseMessage(204);
+                        dBRepository.DeleteUserDeck(dBRepository.GetUserName(parsedAuthenticationToken));
+                        for (int i = 0; i < 4; i++)
+                        {
+                            dBRepository.AddCardToUserDeck(dBRepository.GetUserName(parsedAuthenticationToken), cardIds[i]);
+                        }
+
+                        response = responseMsg.GetResponseMessage(200);
                     }
+                    else response = responseMsg.GetResponseMessage(403);
+                }
+                else response = responseMsg.GetResponseMessage(400);
+            }
+            else response = responseMsg.GetResponseMessage(401);
+        }
+
+        void HandlePutUserRequest(string jsonPayload, string parsedAuthenticationToken)
+        {
+            Response responseMsg = new Response("PUTuser");
+
+            // Find the position of the username in the curl script
+            int usernameStart = request.IndexOf("/users/") + "/users/".Length;
+            int usernameEnd = request.IndexOf(' ', usernameStart);
+
+            // Extract the username
+            string username = request.Substring(usernameStart, usernameEnd - usernameStart);
+
+            if (dBRepository.DoesUserExist(username))
+            {
+                if (dBRepository.ValidUserToken(username, parsedAuthenticationToken) || parsedAuthenticationToken == adminToken)
+                {
+                    dBRepository.UpdateUserData(username, jsonPayload);
+
+                    response = responseMsg.GetResponseMessage(200);
                 }
                 else response = responseMsg.GetResponseMessage(401);
             }
-            else if(request.Contains("GET /users"))
+            else response = responseMsg.GetResponseMessage(404);
+        }
+
+        void HandleTransactionsPackagesRequest(string parsedAuthenticationToken)
+        {
+            Response responseMsg = new Response("transactions/packages");
+            List<int> packagelist = new List<int>();
+            int coins;
+            string username = dBRepository.GetUserName(parsedAuthenticationToken);
+            //Console.WriteLine("username:" + username);
+            coins = dBRepository.GetCoins(username);
+            //Console.WriteLine("coins:" + coins);
+            packagelist = dBRepository.IsAnyPackageAvailable();
+            //Console.WriteLine("packagelist:" + packagelist);
+
+            if (packagelist.Count > 0)
             {
-                Response responseMsg = new Response("GETuser");
-
-                // Find the position of the username in the curl script
-                int usernameStart = request.IndexOf("/users/") + "/users/".Length;
-                int usernameEnd = request.IndexOf(' ', usernameStart);
-
-                // Extract the username
-                string username = request.Substring(usernameStart, usernameEnd - usernameStart);
-                if (dBRepository.DoesUserExist(username))
+                if (coins >= 5)
                 {
-                    if (dBRepository.ValidUserToken(username, parsedAuthenticationToken) || parsedAuthenticationToken == adminToken)
-                    {
-                        string userData = dBRepository.GetUserData(username);
+                    dBRepository.UpdateCoinsByPackage(username);
+                    dBRepository.AcquirePackage(packagelist[0], username);
+                    //Console.WriteLine("packagelist[0]:" + packagelist[0]);
+                    response = responseMsg.GetResponseMessage(200);
 
-                        response = responseMsg.GetResponseMessage(200) + userData + "\r\n";
-                    }
-                    else response = responseMsg.GetResponseMessage(401);
+                    coins = dBRepository.GetCoins(username);
+                    //Console.WriteLine("coins:" + coins);
                 }
-                else response = responseMsg.GetResponseMessage(404);
-
+                else
+                {
+                    response = responseMsg.GetResponseMessage(403);
+                }
+            }
+            else
+            {
+                response = responseMsg.GetResponseMessage(404);
             }
         }
+
+        void HandleGetCardsRequest(string parsedAuthenticationToken)
+        {
+            Response responseCards = new Response("cards");
+
+            if (dBRepository.DoesTokenExist(parsedAuthenticationToken))
+            {
+                string userCards = dBRepository.GetUserCardsJSON(parsedAuthenticationToken);
+
+                if (userCards.Length > 2)
+                {
+                    response = responseCards.GetResponseMessage(200) + userCards + "\r\n";
+                }
+                else
+                {
+                    response = responseCards.GetResponseMessage(204);
+                }
+            }
+            else response = responseCards.GetResponseMessage(401);
+        }
+
+        void HandleGetDeckRequest(string parsedAuthenticationToken)
+        {
+            Response responseMsg = new Response("deckGET");
+            if (dBRepository.DoesTokenExist(parsedAuthenticationToken))
+            {
+                string deck = "";
+
+                if (request.Contains("format=plain")) deck = dBRepository.GetCardsFromDeck(parsedAuthenticationToken, true);
+                else deck = dBRepository.GetCardsFromDeck(parsedAuthenticationToken, false);
+
+                if (deck.Length > 2)
+                {
+                    response = responseMsg.GetResponseMessage(200) + deck + "\r\n";
+                }
+                else
+                {
+                    response = responseMsg.GetResponseMessage(204);
+                }
+            }
+            else response = responseMsg.GetResponseMessage(401);
+        }
+
+        void HandleGetUserRequest(string parsedAuthenticationToken)
+        {
+            Response responseMsg = new Response("GETuser");
+
+            // Find the position of the username in the curl script
+            int usernameStart = request.IndexOf("/users/") + "/users/".Length;
+            int usernameEnd = request.IndexOf(' ', usernameStart);
+
+            // Extract the username
+            string username = request.Substring(usernameStart, usernameEnd - usernameStart);
+            if (dBRepository.DoesUserExist(username))
+            {
+                if (dBRepository.ValidUserToken(username, parsedAuthenticationToken) || parsedAuthenticationToken == adminToken)
+                {
+                    string userData = dBRepository.GetUserData(username);
+
+                    response = responseMsg.GetResponseMessage(200) + userData + "\r\n";
+                }
+                else response = responseMsg.GetResponseMessage(401);
+            }
+            else response = responseMsg.GetResponseMessage(404);
+        }
+
+        
     }
 }

@@ -523,7 +523,6 @@ namespace rgueler_mtcg.Database
                         // Debug output
                         Console.WriteLine($"Token: {token}");
 
-                        // Join the individual card information strings into a single result
                         if (plainFormat) {
                             return ergebnis_plainText;
                         }
@@ -684,7 +683,6 @@ namespace rgueler_mtcg.Database
                 connection.Close();
                 return JsonSerializer.Serialize(content, new JsonSerializerOptions { WriteIndented = true });
             }
-
             }
         }
         public void UpdateUserData(string username, string jsonUserData)

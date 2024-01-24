@@ -6,9 +6,6 @@ namespace rgueler_mtcg
 {
     public class Response
     {
-        public string Status { get; private set; }
-        public string ContentType { get; private set; }
-        public string Content { get; private set; }
 
         private readonly Dictionary<int, string> messages;
         public Response(string path)
@@ -97,7 +94,7 @@ namespace rgueler_mtcg
                     break;
 
                 default:
-                    // Handle the default case, if any
+                    
                     break;
             }
 
