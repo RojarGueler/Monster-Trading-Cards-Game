@@ -725,9 +725,9 @@ namespace rgueler_mtcg.Database
                     var content = new
                     {
                         Name = (string)null,
-                        Elo = (int)0,
                         Wins = (int)0,
-                        Losses = (int)0
+                        Losses = (int)0,
+                        Elo = (int)0
                     };
                     string sql = "SELECT name, elo, wins, losses FROM users WHERE token = @token;";
                     using (NpgsqlCommand command = new NpgsqlCommand(sql, connection))
@@ -741,9 +741,9 @@ namespace rgueler_mtcg.Database
                                 content = new
                                 {
                                     Name = reader.IsDBNull(0) ? null : reader.GetString(0),
-                                    Elo = reader.GetInt32(1),
                                     Wins = reader.GetInt32(2),
-                                    Losses = reader.GetInt32(3)
+                                    Losses = reader.GetInt32(3),
+                                    Elo = reader.GetInt32(1)
                                 };
                                 connection.Close();
                                 return JsonSerializer.Serialize(content, new JsonSerializerOptions { WriteIndented = true });
@@ -760,5 +760,58 @@ namespace rgueler_mtcg.Database
                 return "{}";
             }
         }
+        public string GetScoreboard()
+        {
+            try
+            {
+                using (NpgsqlConnection connection = new NpgsqlConnection(connectionString))
+                {
+                    connection.Open();
+
+                    var userStats = new
+                    {
+                        Name = (string)null,
+                        Wins = (int)0,
+                        Losses = (int)0,
+                        Elo = (int)0
+                    };
+                    string sql = "SELECT name, elo, wins, losses FROM users ORDER BY elo DESC;";
+
+                    using (NpgsqlCommand command = new NpgsqlCommand(sql, connection))
+                    {
+                        List<object> scoreboard = new List<object>();
+
+                        using (NpgsqlDataReader reader = command.ExecuteReader())
+                        {
+                            while (reader.Read())
+                            {
+                                userStats = new
+                                {
+                                    Name = reader["name"] is DBNull ? null : reader.GetString("name"),
+                                    Wins = reader.GetInt32("wins"),
+                                    Losses = reader.GetInt32("losses"),
+                                    Elo = reader.GetInt32("elo")
+                                };
+
+                                scoreboard.Add(userStats);
+                            }
+                        }
+
+                        JsonSerializerOptions jsonOptions = new JsonSerializerOptions
+                        {
+                            WriteIndented = true
+                        };
+                        connection.Close();
+                        return JsonSerializer.Serialize(scoreboard, jsonOptions);
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error reading user stats: {ex.Message}");
+                return "[]";
+            }
+        }
+
     }
 }

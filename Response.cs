@@ -58,7 +58,7 @@ namespace rgueler_mtcg
                 };
                     break;
 
-                case "deckGET":
+                case "GETdeck":
                     messages = new Dictionary<int, string>
                 {
                     { 200, "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\n\r\n{\"message\": \"The deck has cards, the response contains these\"}\r\n" },
@@ -67,7 +67,7 @@ namespace rgueler_mtcg
                 };
                     break;
 
-                case "deckPUT":
+                case "PUTdeck":
                     messages = new Dictionary<int, string>
                 {
                     { 200, "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\n\r\n{\"message\": \"The deck has been successfully configured\"}\r\n" },
@@ -101,6 +101,14 @@ namespace rgueler_mtcg
                     { 200, "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\n\r\n{\"message\": \"The stats could be retrieved successfully.\"}\r\n" },
                     { 401, "HTTP/1.1 401 Token Error\r\nContent-Type: application/json\r\n\r\n{\"message\": \"Access token is missing or invalid\"}\r\n" }
                 };  
+                    break;
+
+                case "scoreboard":
+                    messages = new Dictionary<int, string>
+                {
+                    { 200, "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\n\r\n{\"message\": \"The scoreboard could be retrieved successfully.\"}\r\n" },
+                    { 401, "HTTP/1.1 401 Token Error\r\nContent-Type: application/json\r\n\r\n{\"message\": \"Access token is missing or invalid\"}\r\n" }
+                };
                     break;
 
                 default:

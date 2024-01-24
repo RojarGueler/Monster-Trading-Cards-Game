@@ -60,8 +60,6 @@ namespace rgueler_mtcg
                 endpoint = parts[0] + " " + parts[1];
             }
 
-            Console.WriteLine("endpoint: " + endpoint);
-
             if (indexBody >= 0)
             {
                 // Find the end of the HTTP headers
@@ -126,6 +124,10 @@ namespace rgueler_mtcg
                             HandleGetStatsRequest(parsedAuthenticationToken);
                             break;
 
+                        case "GET /scoreboard":
+                            HandleGetScoreboardRequest(parsedAuthenticationToken);
+                            break;
+
                         default:
                             break;
                     }
@@ -148,27 +150,27 @@ namespace rgueler_mtcg
             // Check the endpoint and perform specific logic
             if (request.Contains("POST /users"))
             {
-                Response responseMsg = new Response("users");
+                Response responsePostUsers = new Response("users");
                 string username = "";
                 username = userObject.Username;
                 if (!dBRepository.DoesUserExist(username))
                 {
                     dBRepository.AddUser();
-                    response = responseMsg.GetResponseMessage(201);
+                    response = responsePostUsers.GetResponseMessage(201);
                 }
-                else response = responseMsg.GetResponseMessage(409);
+                else response = responsePostUsers.GetResponseMessage(409);
 
             }
             else if (request.Contains("POST /sessions"))
             {
-                Response responseMsg = new Response("sessions");
+                Response responsePostSessions = new Response("sessions");
                 if (dBRepository.IsUserLoggedIn(userObject.Username, userObject.Password))
                 {
-                    response = responseMsg.GetResponseMessage(200) + "Token: " + userObject.Username + "-mtcgToken\r\n";
+                    response = responsePostSessions.GetResponseMessage(200) + "Token: " + userObject.Username + "-mtcgToken\r\n";
                 }
                 else
                 {
-                    response = responseMsg.GetResponseMessage(401);
+                    response = responsePostSessions.GetResponseMessage(401);
                 }
             }
         }
@@ -211,7 +213,7 @@ namespace rgueler_mtcg
 
         void HandleDeckRequest(string jsonPayload, string parsedAuthenticationToken)
         {
-            Response responseMsg = new Response("deckPUT");
+            Response responsePutDeck = new Response("PUTdeck");
 
             if (dBRepository.DoesTokenExist(parsedAuthenticationToken))
             {
@@ -234,18 +236,18 @@ namespace rgueler_mtcg
                             dBRepository.AddCardToUserDeck(dBRepository.GetUserName(parsedAuthenticationToken), cardIds[i]);
                         }
 
-                        response = responseMsg.GetResponseMessage(200);
+                        response = responsePutDeck.GetResponseMessage(200);
                     }
-                    else response = responseMsg.GetResponseMessage(403);
+                    else response = responsePutDeck.GetResponseMessage(403);
                 }
-                else response = responseMsg.GetResponseMessage(400);
+                else response = responsePutDeck.GetResponseMessage(400);
             }
-            else response = responseMsg.GetResponseMessage(401);
+            else response = responsePutDeck.GetResponseMessage(401);
         }
 
         void HandlePutUserRequest(string jsonPayload, string parsedAuthenticationToken)
         {
-            Response responseMsg = new Response("PUTuser");
+            Response responsePutUser = new Response("PUTuser");
 
             // Find the position of the username in the curl script
             int usernameStart = request.IndexOf("/users/") + "/users/".Length;
@@ -260,16 +262,16 @@ namespace rgueler_mtcg
                 {
                     dBRepository.UpdateUserData(username, jsonPayload);
 
-                    response = responseMsg.GetResponseMessage(200);
+                    response = responsePutUser.GetResponseMessage(200);
                 }
-                else response = responseMsg.GetResponseMessage(401);
+                else response = responsePutUser.GetResponseMessage(401);
             }
-            else response = responseMsg.GetResponseMessage(404);
+            else response = responsePutUser.GetResponseMessage(404);
         }
 
         void HandleTransactionsPackagesRequest(string parsedAuthenticationToken)
         {
-            Response responseMsg = new Response("transactions/packages");
+            Response responseTransactionsPackages = new Response("transactions/packages");
             List<int> packagelist = new List<int>();
             int coins;
             string username = dBRepository.GetUserName(parsedAuthenticationToken);
@@ -286,19 +288,19 @@ namespace rgueler_mtcg
                     dBRepository.UpdateCoinsByPackage(username);
                     dBRepository.AcquirePackage(packagelist[0], username);
                     //Console.WriteLine("packagelist[0]:" + packagelist[0]);
-                    response = responseMsg.GetResponseMessage(200);
+                    response = responseTransactionsPackages.GetResponseMessage(200);
 
                     coins = dBRepository.GetCoins(username);
                     //Console.WriteLine("coins:" + coins);
                 }
                 else
                 {
-                    response = responseMsg.GetResponseMessage(403);
+                    response = responseTransactionsPackages.GetResponseMessage(403);
                 }
             }
             else
             {
-                response = responseMsg.GetResponseMessage(404);
+                response = responseTransactionsPackages.GetResponseMessage(404);
             }
         }
 
@@ -324,7 +326,7 @@ namespace rgueler_mtcg
 
         void HandleGetDeckRequest(string parsedAuthenticationToken)
         {
-            Response responseMsg = new Response("deckGET");
+            Response responseGetDeck = new Response("GETdeck");
             if (dBRepository.DoesTokenExist(parsedAuthenticationToken))
             {
                 string deck = "";
@@ -334,19 +336,19 @@ namespace rgueler_mtcg
 
                 if (deck.Length > 2)
                 {
-                    response = responseMsg.GetResponseMessage(200) + deck + "\r\n";
+                    response = responseGetDeck.GetResponseMessage(200) + deck + "\r\n";
                 }
                 else
                 {
-                    response = responseMsg.GetResponseMessage(204);
+                    response = responseGetDeck.GetResponseMessage(204);
                 }
             }
-            else response = responseMsg.GetResponseMessage(401);
+            else response = responseGetDeck.GetResponseMessage(401);
         }
 
         void HandleGetUserRequest(string parsedAuthenticationToken)
         {
-            Response responseMsg = new Response("GETuser");
+            Response responseGetUser = new Response("GETuser");
 
             // Find the position of the username in the curl script
             int usernameStart = request.IndexOf("/users/") + "/users/".Length;
@@ -360,25 +362,37 @@ namespace rgueler_mtcg
                 {
                     string userData = dBRepository.GetUserData(username);
 
-                    response = responseMsg.GetResponseMessage(200) + userData + "\r\n";
+                    response = responseGetUser.GetResponseMessage(200) + userData + "\r\n";
                 }
-                else response = responseMsg.GetResponseMessage(401);
+                else response = responseGetUser.GetResponseMessage(401);
             }
-            else response = responseMsg.GetResponseMessage(404);
+            else response = responseGetUser.GetResponseMessage(404);
         }
 
         void HandleGetStatsRequest(string parsedAuthenticationToken)
         {
-            Response responseMsg = new Response("GETstats");
+            Response responseStats = new Response("GETstats");
             if (dBRepository.DoesTokenExist(parsedAuthenticationToken))
             {
                 string output = dBRepository.GetUserStats(parsedAuthenticationToken);
-                response = responseMsg.GetResponseMessage(200) + output + "\r\n";
+                response = responseStats.GetResponseMessage(200) + output + "\r\n";
             }
             else
             {
-                responseMsg.GetResponseMessage(401);
+                responseStats.GetResponseMessage(401);
             }
+        }
+
+        void HandleGetScoreboardRequest(string parsedAuthenticationToken)
+        {
+            Response responseScoreboard = new Response("scoreboard");
+
+            if (dBRepository.DoesTokenExist(parsedAuthenticationToken))
+            {
+                string output = dBRepository.GetScoreboard();
+                response = responseScoreboard.GetResponseMessage(200) + output  + "\r\n";
+            }
+            else response = responseScoreboard.GetResponseMessage(401);
         }
     }
 }

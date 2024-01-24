@@ -68,8 +68,6 @@ namespace rgueler_mtcg
                 
                 string jsonBody = new string(requestBody);
 
-                // Jetzt hast du den vollstÃ¤ndigen HTTP-Request und den JSON-Body
-                //Console.WriteLine($"JSON Body: {jsonBody}");
 
                 string concatinatedRequest = fullRequest + jsonBody;
                 // Erstelle das Request-Objekt mit dem JSON-Body
