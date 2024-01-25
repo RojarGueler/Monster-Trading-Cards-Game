@@ -3,6 +3,7 @@ using System;
 using System.Text.Json;
 using rgueler_mtcg.GameObjects;
 using System.Linq;
+using System.Text.RegularExpressions;
 
 namespace rgueler_mtcg
 {
@@ -140,7 +141,8 @@ namespace rgueler_mtcg
                         default:
                             break;
                     }
-                    if(endpoint.Contains("GET /users")) HandleGetUserRequest(parsedAuthenticationToken);
+                    if (endpoint.Contains("GET /users")) HandleGetUserRequest(parsedAuthenticationToken);
+
                     if (endpoint.Contains("DELETE /tradings/"))
                     {
                         string id = "";
@@ -157,6 +159,32 @@ namespace rgueler_mtcg
                             }
                         }
                         HandleDeleteTradings(parsedAuthenticationToken, id);
+                    }
+                    if (endpoint.Contains("POST /tradings/"))
+                    {
+                        int startIndex = this.request.IndexOf("\"")+1;
+                        int endIndex = this.request.IndexOf("\"", startIndex);
+                        string cardId = "";
+                        if (startIndex >= 0 && endIndex > startIndex)
+                        {
+                            cardId = this.request.Substring(startIndex, endIndex - startIndex);
+                        }
+
+                        string tradeId = "";
+                        int start = request.IndexOf("/tradings/");
+
+                        if (start != -1)
+                        {
+                            int space = start + ("/tradings/").Length;
+                            int end = request.IndexOf(' ', space);
+
+                            if (end != -1)
+                            {
+                                tradeId = request.Substring(space, end - space);
+                            }
+                        }
+
+                        HandlePostTradingsWithID(parsedAuthenticationToken, cardId, tradeId);
                     }
                 }
                 catch (JsonException ex)
@@ -481,6 +509,7 @@ namespace rgueler_mtcg
         void HandleDeleteTradings(string parsedAuthenticationToken, string id)
         {
             Response responseTradings = new Response("DELETEtrade");
+            Console.WriteLine("Token: " + parsedAuthenticationToken);
             Console.WriteLine("ID:----------------------:"+id);
             if (dBRepository.DoesTokenExist(parsedAuthenticationToken))
             {
@@ -516,5 +545,60 @@ namespace rgueler_mtcg
             }
         }
 
+        void HandlePostTradingsWithID(string parsedAuthenticationToken, string cardId, string tradeId)
+        {
+            Response responseTradings = new Response("SUCCESStrade");
+            Console.WriteLine("Token: " + parsedAuthenticationToken);
+            Console.WriteLine("TradeID: " + tradeId);
+            Console.WriteLine("cardID: " + cardId);
+            if (!dBRepository.DoesTokenExist(parsedAuthenticationToken))
+            {
+                response = responseTradings.GetResponseMessage(401);
+            }
+            else
+            {
+                if (!tradingDBRepository.DoesIdExist(tradeId))
+                {
+                    response = responseTradings.GetResponseMessage(404);
+                }
+                else
+                {
+                    string username = dBRepository.GetUserName(parsedAuthenticationToken);
+                    Console.WriteLine("Username: " + username);
+                    if (tradingDBRepository.UserID(tradeId, username))
+                    {
+                        response = responseTradings.GetResponseMessage(410);
+                    }
+                    else
+                    {
+                        if (!tradingDBRepository.DoesUserHaveCard(username, cardId))
+                        {
+                            response = responseTradings.GetResponseMessage(403);
+                        }
+                        else
+                        {
+                            string cardToTrade = tradingDBRepository.GetCardToTradeById(tradeId);
+
+                            if (!tradingDBRepository.CheckIfDamageIsEnough(cardId, cardToTrade))
+                            {
+                                response = responseTradings.GetResponseMessage(411);
+                            }
+                            else
+                            {
+                                tradingDBRepository.DeleteTradeById(tradeId);
+
+                                int tradingone = tradingDBRepository.GetPackageIdFromCardId(cardToTrade);
+                                int tradingtwo = tradingDBRepository.GetPackageIdFromCardId(cardId);
+
+                                tradingDBRepository.UpdatePackageIdForCard(cardToTrade, tradingone);
+                                tradingDBRepository.UpdatePackageIdForCard(cardId, tradingtwo);
+
+                                response = responseTradings.GetResponseMessage(200);
+                            }
+                        }
+                    }
+                }
+            }
+        }
     }
 }

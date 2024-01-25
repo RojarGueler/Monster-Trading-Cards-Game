@@ -91,7 +91,7 @@ namespace rgueler_mtcg.Database
                 return false;
             }
         }
-
+        
         public bool DoesCardExistInTrading(string cardId)
         {
             try
@@ -231,7 +231,148 @@ namespace rgueler_mtcg.Database
                 }
             }
         }
+        public string GetCardToTradeById(string tradingId)
+        {
+            using (NpgsqlConnection connection = new NpgsqlConnection(connectionString))
+            {
+                connection.Open();
+                string sql = "SELECT cardtotrade FROM tradings WHERE id = @tradingId;";
+                string cardToTrade = null;
 
+                try
+                {
+                    using (NpgsqlCommand command = new NpgsqlCommand(sql, connection))
+                    {
+                        command.Parameters.AddWithValue("@tradingId", tradingId);
+
+                        using (NpgsqlDataReader reader = command.ExecuteReader())
+                        {
+                            if (reader.Read())
+                            {
+                                cardToTrade = reader.GetString(0);
+                            }
+                        }
+                    }
+                }
+                finally
+                {
+                    connection.Close();
+                }
+
+                return cardToTrade;
+            }
+        }
+        public bool CheckIfDamageIsEnough(string cardId, string tradingId)
+        {
+            double cardDamage = GetCardDamage(cardId);
+            double minimumDamageInOffer = GetMinimumDamageInOffer(tradingId);
+
+            return cardDamage >= minimumDamageInOffer;
+        }
+
+        private double GetCardDamage(string cardId)
+        {
+            return GetDoubleValueFromDatabase("SELECT damage FROM cards WHERE id = @cardId;", "@cardId", cardId);
+        }
+
+        private double GetMinimumDamageInOffer(string tradingId)
+        {
+            return GetDoubleValueFromDatabase("SELECT minimumdamage FROM tradings WHERE id = @tradingId;", "@tradingId", tradingId);
+        }
+
+        private double GetDoubleValueFromDatabase(string sql, string parameterName, string parameterValue)
+        {
+            double result = 0.0;
+
+            using (NpgsqlConnection connection = new NpgsqlConnection(connectionString))
+            {
+                connection.Open();
+
+                try
+                {
+                    using (NpgsqlCommand command = new NpgsqlCommand(sql, connection))
+                    {
+                        command.Parameters.AddWithValue(parameterName, parameterValue);
+
+                        using (NpgsqlDataReader reader = command.ExecuteReader())
+                        {
+                            if (reader.Read())
+                            {
+                                result = reader.GetDouble(0);
+                            }
+                        }
+                    }
+                }
+                finally
+                {
+                    connection.Close();
+                }
+            }
+
+            return result;
+        }
+
+        public int GetPackageIdFromCardId(string cardId)
+        {
+            return GetIntValueFromDatabase("SELECT package_id FROM cards WHERE id = @cardId;", "@cardId", cardId);
+        }
+
+        public bool UpdatePackageIdForCard(string cardIdToUpdate, int newPackageId)
+        {
+            using (NpgsqlConnection connection = new NpgsqlConnection(connectionString))
+            {
+                connection.Open();
+                string sql = "UPDATE cards SET package_id = @newPackageId WHERE id = @cardIdToUpdate;";
+                try
+                {
+                    using (NpgsqlCommand command = new NpgsqlCommand(sql, connection))
+                    {
+                        command.Parameters.AddWithValue("@cardIdToUpdate", cardIdToUpdate);
+                        command.Parameters.AddWithValue("@newPackageId", newPackageId);
+
+                        int rowsAffected = command.ExecuteNonQuery();
+
+                        return rowsAffected > 0;
+                    }
+                }
+                finally
+                {
+                    connection.Close();
+                }
+            }
+        }
+
+        private int GetIntValueFromDatabase(string sql, string parameterName, string parameterValue)
+        {
+            int result = 0;
+
+            using (NpgsqlConnection connection = new NpgsqlConnection(connectionString))
+            {
+                connection.Open();
+
+                try
+                {
+                    using (NpgsqlCommand command = new NpgsqlCommand(sql, connection))
+                    {
+                        command.Parameters.AddWithValue(parameterName, parameterValue);
+
+                        using (NpgsqlDataReader reader = command.ExecuteReader())
+                        {
+                            if (reader.Read())
+                            {
+                                result = reader.GetInt32(0);
+                            }
+                        }
+                    }
+                }
+                finally
+                {
+                    connection.Close();
+                }
+            }
+
+            return result;
+        }
 
     }
 }
