@@ -12,6 +12,7 @@ namespace rgueler_mtcg
         public string response { get; private set; }
 
         public DBRepository dBRepository { get; private set; }
+        public TradingDBRepository tradingDBRepository { get; private set; }
 
         private const string adminToken = "admin-mtcgToken";
 
@@ -20,7 +21,7 @@ namespace rgueler_mtcg
             this.response = "";
             this.request = rawRequest;
             this.dBRepository = new DBRepository();
-
+            this.tradingDBRepository = new TradingDBRepository();
             string authToken = ParseRequest();
 
             HandleRequest(authToken);
