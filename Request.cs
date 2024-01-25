@@ -91,6 +91,10 @@ namespace rgueler_mtcg
                             HandleDeckRequest(jsonPayload, parsedAuthenticationToken);
                             break;
 
+                        case "POST /tradings":
+                            HandlePostTrading(jsonPayload, parsedAuthenticationToken);
+                            break;
+
                         default:
                             
                             break;
@@ -129,10 +133,31 @@ namespace rgueler_mtcg
                             HandleGetScoreboardRequest(parsedAuthenticationToken);
                             break;
 
+                        case "GET /tradings":
+                            HandleGetTradings(parsedAuthenticationToken);
+                            break;
+
                         default:
                             break;
                     }
                     if(endpoint.Contains("GET /users")) HandleGetUserRequest(parsedAuthenticationToken);
+                    if (endpoint.Contains("DELETE /tradings/"))
+                    {
+                        string id = "";
+                        int startindex = request.IndexOf("/tradings/");
+
+                        if (startindex != -1)
+                        {
+                            int space = startindex + ("/tradings/").Length;
+                            int endindex = request.IndexOf(' ', space);
+
+                            if (endindex != -1)
+                            {
+                                id = request.Substring(space, endindex - space);
+                            }
+                        }
+                        HandleDeleteTradings(parsedAuthenticationToken, id);
+                    }
                 }
                 catch (JsonException ex)
                 {
@@ -140,7 +165,6 @@ namespace rgueler_mtcg
                 }
             }
         }
-
         // Helper methods to handle specific endpoints
         void HandleUserAndSessionsRequests(string jsonPayload)
         {
@@ -395,5 +419,102 @@ namespace rgueler_mtcg
             }
             else response = responseScoreboard.GetResponseMessage(401);
         }
+    
+        void HandleGetTradings(string parsedAuthenticationToken)
+        {
+            Response responseTradings = new Response("GETtrade");
+
+            if (dBRepository.DoesTokenExist(parsedAuthenticationToken))
+            {
+                string output = tradingDBRepository.GetTrade();
+                if(!output.Equals("[]"))
+                {
+                    response = responseTradings.GetResponseMessage(200) + output + "\r\n";
+                }
+                else response = responseTradings.GetResponseMessage(205);
+            }
+            else response = responseTradings.GetResponseMessage(401);
+        }
+        void HandlePostTrading(string jsonPayload, string parsedAuthenticationToken)
+        {
+            try
+            {
+                Response responseTradings = new Response("POSTtrade");
+
+                if (!dBRepository.DoesTokenExist(parsedAuthenticationToken))
+                {
+                    response = responseTradings.GetResponseMessage(401);
+                    return;
+                }
+
+                var trade = JsonSerializer.Deserialize<Trade>(jsonPayload);
+                string username = dBRepository.GetUserName(parsedAuthenticationToken);
+
+                if (!tradingDBRepository.DoesUserHaveCard(username, trade.CardToTrade))
+                {
+                    response = responseTradings.GetResponseMessage(403);
+                    return;
+                }
+
+                if (tradingDBRepository.DoesCardExistInTrading(trade.CardToTrade))
+                {
+                    response = responseTradings.GetResponseMessage(409);
+                    return;
+                }
+
+                tradingDBRepository.AddTrade(trade.CardToTrade, trade.Id, trade.Type, trade.MinimumDamage, username);
+
+                response = responseTradings.GetResponseMessage(201);
+            }
+            catch (JsonException ex)
+            {
+                Console.WriteLine($"Error parsing JSON: {ex.Message}");
+                response = new Response("POSTtrade").GetResponseMessage(400);
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error handling POST trading: {ex.Message}");
+                response = new Response("POSTtrade").GetResponseMessage(500);
+            }
+        }
+
+        void HandleDeleteTradings(string parsedAuthenticationToken, string id)
+        {
+            Response responseTradings = new Response("DELETEtrade");
+            Console.WriteLine("ID:----------------------:"+id);
+            if (dBRepository.DoesTokenExist(parsedAuthenticationToken))
+            {
+                if (string.IsNullOrEmpty(id))
+                {
+                    response = responseTradings.GetResponseMessage(404); // ID not found
+                }
+                else
+                {
+                    if (tradingDBRepository.DoesIdExist(id))
+                    {
+                        string username = dBRepository.GetUserName(parsedAuthenticationToken);
+                        //Checks if the ID belongs to the given User
+                        if (tradingDBRepository.UserID(id, username))
+                        {
+                            tradingDBRepository.DeleteTradeById(id);
+                            response = responseTradings.GetResponseMessage(200); // OKAY
+                        }
+                        else
+                        {
+                            response = responseTradings.GetResponseMessage(403); // Forbidden
+                        }
+                    }
+                    else
+                    {
+                        response = responseTradings.GetResponseMessage(404); // ID Not Found
+                    }
+                }
+            }
+            else
+            {
+                response = responseTradings.GetResponseMessage(401); // Unauthorized
+            }
+        }
+
     }
 }

@@ -31,6 +31,7 @@ namespace rgueler_mtcg.Database
         }
         public void InitDB()
         {
+            DropDataBaseTable("tradings");
             DropDataBaseTable("deck");
             DropDataBaseTable("user_packages");
             DropDataBaseTable("cards");
@@ -42,14 +43,15 @@ namespace rgueler_mtcg.Database
             CreateDataBaseTable("cards");
             CreateDataBaseTable("user_packages");
             CreateDataBaseTable("deck");
+            CreateDataBaseTable("tradings");
         }
         private void DropDataBaseTable(string tableName)
         {
             using (NpgsqlConnection connection = new NpgsqlConnection(connectionString))
             {
                 connection.Open();
-
-                using (NpgsqlCommand command = new NpgsqlCommand($"DROP TABLE IF EXISTS {tableName};", connection))
+                string sql = $"DROP TABLE IF EXISTS {tableName};";
+                using (NpgsqlCommand command = new NpgsqlCommand(sql, connection))
                 {
                     try
                     {
@@ -100,7 +102,8 @@ namespace rgueler_mtcg.Database
                     return "CREATE TABLE IF NOT EXISTS user_packages (username VARCHAR(255) REFERENCES users(username), package_id INT REFERENCES packages(package_id), PRIMARY KEY (username, package_id));";
                 case "deck":
                     return "CREATE TABLE IF NOT EXISTS deck (username VARCHAR(255) REFERENCES users(username),card_id VARCHAR(255) REFERENCES cards(id),PRIMARY KEY (username, card_id));";
-
+                case "tradings":
+                    return "CREATE TABLE IF NOT EXISTS tradings (id VARCHAR(255) PRIMARY KEY, cardtotrade VARCHAR(255) NOT NULL, card_type VARCHAR(255), MinimumDamage double PRECISION, username VARCHAR(255) REFERENCES users(username));";
                 default:
                     Console.WriteLine($"Table '{tableName}' not supported.");
                     return null;
@@ -111,8 +114,8 @@ namespace rgueler_mtcg.Database
             using (NpgsqlConnection connection = new NpgsqlConnection(connectionString))
             {
                 connection.Open();
-
-                using (NpgsqlCommand command = new NpgsqlCommand("INSERT INTO users (token, username, password, coins, elo, wins, losses) VALUES (@token, @username, @password, @coins, 0, 0, 0)", connection))
+                string sql = "INSERT INTO users (token, username, password, coins, elo, wins, losses) VALUES (@token, @username, @password, @coins, 0, 0, 0)";
+                using (NpgsqlCommand command = new NpgsqlCommand(sql, connection))
                 {
                     string token = User.Username + "-mtcgToken";
                     
@@ -132,8 +135,8 @@ namespace rgueler_mtcg.Database
             using (NpgsqlConnection connection = new NpgsqlConnection(connectionString))
             {
                 connection.Open();
-
-                using (NpgsqlCommand command = new NpgsqlCommand("SELECT COUNT(*) FROM users WHERE username = @username AND password = @password", connection))
+                string sql = "SELECT COUNT(*) FROM users WHERE username = @username AND password = @password";
+                using (NpgsqlCommand command = new NpgsqlCommand(sql, connection))
                 {
                     command.Parameters.AddWithValue("@username", username);
                     command.Parameters.AddWithValue("@password", HashPassword(password));
@@ -175,9 +178,9 @@ namespace rgueler_mtcg.Database
                 foreach (Card card in cards)
                 {
                     string cardi = card.Id;
-                    string query = $"SELECT COUNT(*) FROM cards WHERE id = @card";
+                    string sql = $"SELECT COUNT(*) FROM cards WHERE id = @card";
 
-                    using (NpgsqlCommand command = new NpgsqlCommand(query, connection))
+                    using (NpgsqlCommand command = new NpgsqlCommand(sql, connection))
                     {
                         command.Parameters.AddWithValue("@card", card.Id);
                         int count = Convert.ToInt32(command.ExecuteScalar());
@@ -239,7 +242,8 @@ namespace rgueler_mtcg.Database
 
         private void SavePackage(NpgsqlConnection connection, NpgsqlTransaction transaction, Package package)
         {
-            using (var command = new NpgsqlCommand("INSERT INTO packages (package_id, bought) VALUES (@package_id, @bought)", connection, transaction))
+            string sql = "INSERT INTO packages (package_id, bought) VALUES (@package_id, @bought)";
+            using (var command = new NpgsqlCommand(sql, connection, transaction))
             {
                 command.Parameters.AddWithValue("@package_id", package.PackageId);
                 command.Parameters.AddWithValue("@bought", package.Bought);
@@ -250,7 +254,8 @@ namespace rgueler_mtcg.Database
 
         private void SaveCard(NpgsqlConnection connection, NpgsqlTransaction transaction, Card card, int packageId)
         {
-            using (var command = new NpgsqlCommand("INSERT INTO cards (id, name, damage, package_id) VALUES (@Id, @name, @damage, @packageId)", connection, transaction))
+            string sql = "INSERT INTO cards (id, name, damage, package_id) VALUES (@Id, @name, @damage, @packageId)";
+            using (var command = new NpgsqlCommand(sql, connection, transaction))
             {
                 command.Parameters.AddWithValue("@Id", card.Id);
                 command.Parameters.AddWithValue("@name", card.Name);
@@ -265,8 +270,8 @@ namespace rgueler_mtcg.Database
             using (NpgsqlConnection connection = new NpgsqlConnection(connectionString))
             {
                 connection.Open();
-
-                using (NpgsqlCommand command = new NpgsqlCommand("SELECT coins FROM users WHERE username = @username;", connection))
+                string sql = "SELECT coins FROM users WHERE username = @username;";
+                using (NpgsqlCommand command = new NpgsqlCommand(sql, connection))
                 {
                     command.Parameters.AddWithValue("@username", username);
 
@@ -300,8 +305,8 @@ namespace rgueler_mtcg.Database
             using (NpgsqlConnection connection = new NpgsqlConnection(connectionString))
             {
                 connection.Open();
-
-                using (NpgsqlCommand command = new NpgsqlCommand("SELECT package_id FROM packages WHERE bought = false;", connection))
+                string sql = "SELECT package_id FROM packages WHERE bought = false;";
+                using (NpgsqlCommand command = new NpgsqlCommand(sql, connection))
                 {
                     using (NpgsqlDataReader reader = command.ExecuteReader())
                     {
@@ -325,7 +330,8 @@ namespace rgueler_mtcg.Database
             using (NpgsqlConnection connection = new NpgsqlConnection(connectionString))
             {
                 connection.Open();
-
+                string sql = "INSERT INTO user_packages (username, package_id) VALUES (@username, @packageId)";
+                string sqlUpdate = "UPDATE packages SET bought = true WHERE package_id = @packageId";
                 using (var transaction = connection.BeginTransaction())
                 {
                     try
@@ -334,7 +340,7 @@ namespace rgueler_mtcg.Database
                         Console.WriteLine($"Acquiring package {packageId} for user {username}");
 
                         // Insert into the user_packages table
-                        using (NpgsqlCommand command = new NpgsqlCommand("INSERT INTO user_packages (username, package_id) VALUES (@username, @packageId)", connection, transaction))
+                        using (NpgsqlCommand command = new NpgsqlCommand(sql, connection, transaction))
                         {
                             command.Parameters.AddWithValue("@username", username);
                             command.Parameters.AddWithValue("@packageId", packageId);
@@ -343,7 +349,7 @@ namespace rgueler_mtcg.Database
                         }
 
                         // Update the bought status in the packages table
-                        using (NpgsqlCommand updateCommand = new NpgsqlCommand("UPDATE packages SET bought = true WHERE package_id = @packageId", connection, transaction))
+                        using (NpgsqlCommand updateCommand = new NpgsqlCommand(sqlUpdate, connection, transaction))
                         {
                             updateCommand.Parameters.AddWithValue("@packageId", packageId);
                             updateCommand.ExecuteNonQuery();
@@ -366,14 +372,15 @@ namespace rgueler_mtcg.Database
             using (NpgsqlConnection connection = new NpgsqlConnection(connectionString))
             {
                 connection.Open();
-
+                string sql = "SELECT coins FROM users WHERE username = @username";
+                string sqlCoins = "UPDATE users SET coins = coins - 5 WHERE username = @username";
                 using (var transaction = connection.BeginTransaction())
                 {
                     try
                     {
                         // Prüfe, ob der Benutzer existiert und genügend Münzen hat
                         int userCoins = 0;
-                        using (NpgsqlCommand getUserCoinsCommand = new NpgsqlCommand("SELECT coins FROM users WHERE username = @username", connection, transaction))
+                        using (NpgsqlCommand getUserCoinsCommand = new NpgsqlCommand(sql, connection, transaction))
                         {
                             getUserCoinsCommand.Parameters.AddWithValue("@username", username);
                             var result = getUserCoinsCommand.ExecuteScalar();
@@ -386,7 +393,7 @@ namespace rgueler_mtcg.Database
                         if (userCoins >= 5)
                         {
                             // Ziehe 5 Münzen vom Benutzer ab
-                            using (NpgsqlCommand updateCoinsCommand = new NpgsqlCommand("UPDATE users SET coins = coins - 5 WHERE username = @username", connection, transaction))
+                            using (NpgsqlCommand updateCoinsCommand = new NpgsqlCommand(sqlCoins, connection, transaction))
                             {
                                 updateCoinsCommand.Parameters.AddWithValue("@username", username);
                                 updateCoinsCommand.ExecuteNonQuery();
@@ -415,8 +422,8 @@ namespace rgueler_mtcg.Database
             using (NpgsqlConnection connection = new NpgsqlConnection(connectionString))
             {
                 connection.Open();
-
-                using (NpgsqlCommand command = new NpgsqlCommand("SELECT COUNT(*) FROM users WHERE token = @token", connection))
+                string sql = "SELECT COUNT(*) FROM users WHERE token = @token";
+                using (NpgsqlCommand command = new NpgsqlCommand(sql, connection))
                 {
                     int count = 0;
                     command.Parameters.AddWithValue("@token", token);
@@ -434,16 +441,16 @@ namespace rgueler_mtcg.Database
                 NpgsqlConnection connection = new NpgsqlConnection(connectionString))
             {
                 connection.Open();
-
+                string sql = "SELECT cards.id, cards.name, cards.damage " +
+                             "FROM users " +
+                             "JOIN user_packages ON users.username = user_packages.username " +
+                             "JOIN cards ON user_packages.package_id = cards.package_id " +
+                             "WHERE users.username = @username;";
                 string username = GetUserName(token);
 
                 if (!string.IsNullOrEmpty(username))
                 {
-                    using (NpgsqlCommand command = new NpgsqlCommand("SELECT cards.id, cards.name, cards.damage " +
-                                 "FROM users " +
-                                 "JOIN user_packages ON users.username = user_packages.username " +
-                                 "JOIN cards ON user_packages.package_id = cards.package_id " +
-                                 "WHERE users.username = @username;", connection))
+                    using (NpgsqlCommand command = new NpgsqlCommand(sql, connection))
                     {
                         command.Parameters.AddWithValue("@username", username);
 
@@ -491,14 +498,14 @@ namespace rgueler_mtcg.Database
 
                 if (!string.IsNullOrEmpty(token))
                 {
-                    string query = $"SELECT cards.id, cards.name, cards.damage " +
+                    string sql = $"SELECT cards.id, cards.name, cards.damage " +
                                    "FROM users " +
                                    "JOIN user_packages ON users.username = user_packages.username " +
                                    "JOIN cards ON user_packages.package_id = cards.package_id " +
                                    "JOIN deck ON users.username = deck.username AND cards.id = deck.card_id " +
                                    "WHERE users.token = @token;";
 
-                    using (NpgsqlCommand command = new NpgsqlCommand(query, connection))
+                    using (NpgsqlCommand command = new NpgsqlCommand(sql, connection))
                     {
                         command.Parameters.AddWithValue("@token", token);
 
@@ -578,8 +585,8 @@ namespace rgueler_mtcg.Database
             using (NpgsqlConnection connection = new NpgsqlConnection(connectionString))
             {
                 connection.Open();
-
-                using (NpgsqlCommand command = new NpgsqlCommand("DELETE FROM deck WHERE username = @username", connection))
+                string sql = "DELETE FROM deck WHERE username = @username";
+                using (NpgsqlCommand command = new NpgsqlCommand(sql, connection))
                 {
                     command.Parameters.AddWithValue("@username", username);
 
@@ -595,8 +602,8 @@ namespace rgueler_mtcg.Database
             using (NpgsqlConnection connection = new NpgsqlConnection(connectionString))
             {
                 connection.Open();
-
-                using (NpgsqlCommand command = new NpgsqlCommand("INSERT INTO deck (username, card_id) VALUES (@username, @cardId)", connection))
+                string sql = "INSERT INTO deck (username, card_id) VALUES (@username, @cardId)";
+                using (NpgsqlCommand command = new NpgsqlCommand(sql, connection))
                 {
                     command.Parameters.AddWithValue("@username", username);
                     command.Parameters.AddWithValue("@cardId", cardId);
@@ -612,8 +619,8 @@ namespace rgueler_mtcg.Database
             using (NpgsqlConnection connection = new NpgsqlConnection(connectionString))
             {
                 connection.Open();
-
-                using (NpgsqlCommand command = new NpgsqlCommand("SELECT COUNT(*) FROM users WHERE username = @username;", connection))
+                string sql = "SELECT COUNT(*) FROM users WHERE username = @username;";
+                using (NpgsqlCommand command = new NpgsqlCommand(sql, connection))
                 {
                     command.Parameters.AddWithValue("@username", username);
 
@@ -776,7 +783,6 @@ namespace rgueler_mtcg.Database
                         Elo = (int)0
                     };
                     string sql = "SELECT name, elo, wins, losses FROM users ORDER BY elo DESC;";
-
                     using (NpgsqlCommand command = new NpgsqlCommand(sql, connection))
                     {
                         List<object> scoreboard = new List<object>();
