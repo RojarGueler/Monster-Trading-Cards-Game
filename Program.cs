@@ -36,7 +36,7 @@ namespace rgueler_mtcg
             while (true)
             {
                 TcpClient client = await tcpListener.AcceptTcpClientAsync();
-                await HandleClient(client);
+                Task.Run(() => { HandleClient(client); });
             }
         }
 

@@ -8,6 +8,7 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <Compile Remove="Database\BattleDBRepository.cs" />
     <Compile Remove="Database\test.cs" />
   </ItemGroup>
 

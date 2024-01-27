@@ -44,6 +44,8 @@ namespace rgueler_mtcg.Database
             CreateDataBaseTable("user_packages");
             CreateDataBaseTable("deck");
             CreateDataBaseTable("tradings");
+
+            AlterTableUsersAddLastSpinDate();
         }
         private void DropDataBaseTable(string tableName)
         {
@@ -230,7 +232,7 @@ namespace rgueler_mtcg.Database
             }
         }
 
-        private void SavePackageAndCards(NpgsqlConnection connection, NpgsqlTransaction transaction, Package package)
+        public void SavePackageAndCards(NpgsqlConnection connection, NpgsqlTransaction transaction, Package package)
         {
             SavePackage(connection, transaction, package);
 
@@ -818,6 +820,128 @@ namespace rgueler_mtcg.Database
                 return "[]";
             }
         }
+        private void AlterTableUsersAddLastSpinDate()
+        {
+            using (NpgsqlConnection connection = new NpgsqlConnection(connectionString))
+            {
+                connection.Open();
+                string sql = "ALTER TABLE users ADD COLUMN IF NOT EXISTS last_spin_date DATE;";
+                using (NpgsqlCommand command = new NpgsqlCommand(sql, connection))
+                {
+                    try
+                    {
+                        command.ExecuteNonQuery();
+                    }
+                    catch (Exception ex)
+                    {
+                        Console.WriteLine($"Error adding column 'last_spin_date' to 'users' table: {ex.Message}");
+                    }
+                }
+                connection.Close();
+            }
+        }
+        public int GetUserCoins(string username)
+        {
+            int coins = 0;
 
+            using (NpgsqlConnection connection = new NpgsqlConnection(connectionString))
+            {
+                connection.Open();
+
+                string sql = "SELECT coins FROM users WHERE username = @username";
+
+                using (NpgsqlCommand command = new NpgsqlCommand(sql, connection))
+                {
+                    command.Parameters.AddWithValue("@username", username);
+
+                    using (NpgsqlDataReader reader = command.ExecuteReader())
+                    {
+                        if (reader.Read())
+                        {
+                            coins = reader.GetInt32(0);
+                        }
+                    }
+                }
+
+                connection.Close();
+            }
+
+            return coins;
+        }
+
+        public void UpdateLastSpinDate(string username, DateTime currentDate)
+        {
+            using (NpgsqlConnection connection = new NpgsqlConnection(connectionString))
+            {
+                connection.Open();
+
+                string sql = "UPDATE users SET last_spin_date = @currentDate WHERE username = @username";
+                using (NpgsqlCommand command = new NpgsqlCommand(sql, connection))
+                {
+                    command.Parameters.AddWithValue("@currentDate", currentDate);
+                    command.Parameters.AddWithValue("@username", username);
+
+                    command.ExecuteNonQuery();
+                }
+
+                connection.Close();
+            }
+        }
+
+        public bool CanUserSpinWheel(string username, DateTime currentDate)
+        {
+            using (NpgsqlConnection connection = new NpgsqlConnection(connectionString))
+            {
+                connection.Open();
+
+                string sql = "SELECT last_spin_date FROM users WHERE username = @username";
+                using (NpgsqlCommand command = new NpgsqlCommand(sql, connection))
+                {
+                    command.Parameters.AddWithValue("@username", username);
+
+                    object lastSpinDateObj = command.ExecuteScalar();
+
+                    if (lastSpinDateObj != DBNull.Value)
+                    {
+                        DateTime lastSpinDate = (DateTime)lastSpinDateObj;
+                        // Prüfe, ob seit dem letzten Drehen ein Tag vergangen ist
+                        bool oneDayPassed = (currentDate - lastSpinDate).TotalDays >= 1;
+
+                        connection.Close();
+                        return oneDayPassed;
+                    }
+                }
+
+                connection.Close();
+                // Wenn das Datum nicht vorhanden ist, kann der Benutzer das Glücksrad drehen
+                return true;
+            }
+        }
+
+        public int SpinWheel()
+        {
+            // Annahme: Gibt eine zufällige Anzahl von Münzen zwischen 1 und 10 zurück
+            Random random = new Random();
+            return random.Next(1, 11);
+        }
+
+        public void AwardCoins(string username, int coins)
+        {
+            using (NpgsqlConnection connection = new NpgsqlConnection(connectionString))
+            {
+                connection.Open();
+
+                string sql = "UPDATE users SET coins = coins + @coins WHERE username = @username";
+                using (NpgsqlCommand command = new NpgsqlCommand(sql, connection))
+                {
+                    command.Parameters.AddWithValue("@coins", coins);
+                    command.Parameters.AddWithValue("@username", username);
+
+                    command.ExecuteNonQuery();
+                }
+
+                connection.Close();
+            }
+        }
     }
 }

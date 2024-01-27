@@ -76,7 +76,7 @@ namespace rgueler_mtcg
 
                 try
                 {
-                    
+
                     switch (endpoint)
                     {
                         case "POST /users":
@@ -97,21 +97,22 @@ namespace rgueler_mtcg
                             break;
 
                         default:
-                            
+
                             break;
                     }
 
-                    if(endpoint.Contains("PUT /users")) HandlePutUserRequest(jsonPayload, parsedAuthenticationToken);
+                    if (endpoint.Contains("PUT /users")) HandlePutUserRequest(jsonPayload, parsedAuthenticationToken);
                 }
                 catch (JsonException ex)
                 {
                     Console.WriteLine($"Error parsing JSON: {ex.Message}");
                 }
-            }else
+            }
+            else
             {
                 try
                 {
-                    switch(endpoint)
+                    switch (endpoint)
                     {
                         case "POST /transactions/packages":
                             HandleTransactionsPackagesRequest(parsedAuthenticationToken);
@@ -138,6 +139,14 @@ namespace rgueler_mtcg
                             HandleGetTradings(parsedAuthenticationToken);
                             break;
 
+                        case "GET /coins":
+                            HandleGetCoins(parsedAuthenticationToken);
+                            break;
+
+                        case "PUT /coins":
+                            HandlePutCoins(parsedAuthenticationToken);
+                            break;
+
                         default:
                             break;
                     }
@@ -162,7 +171,7 @@ namespace rgueler_mtcg
                     }
                     if (endpoint.Contains("POST /tradings/"))
                     {
-                        int startIndex = this.request.IndexOf("\"")+1;
+                        int startIndex = this.request.IndexOf("\"") + 1;
                         int endIndex = this.request.IndexOf("\"", startIndex);
                         string cardId = "";
                         if (startIndex >= 0 && endIndex > startIndex)
@@ -443,11 +452,11 @@ namespace rgueler_mtcg
             if (dBRepository.DoesTokenExist(parsedAuthenticationToken))
             {
                 string output = dBRepository.GetScoreboard();
-                response = responseScoreboard.GetResponseMessage(200) + output  + "\r\n";
+                response = responseScoreboard.GetResponseMessage(200) + output + "\r\n";
             }
             else response = responseScoreboard.GetResponseMessage(401);
         }
-    
+
         void HandleGetTradings(string parsedAuthenticationToken)
         {
             Response responseTradings = new Response("GETtrade");
@@ -455,7 +464,7 @@ namespace rgueler_mtcg
             if (dBRepository.DoesTokenExist(parsedAuthenticationToken))
             {
                 string output = tradingDBRepository.GetTrade();
-                if(!output.Equals("[]"))
+                if (!output.Equals("[]"))
                 {
                     response = responseTradings.GetResponseMessage(200) + output + "\r\n";
                 }
@@ -510,7 +519,7 @@ namespace rgueler_mtcg
         {
             Response responseTradings = new Response("DELETEtrade");
             Console.WriteLine("Token: " + parsedAuthenticationToken);
-            Console.WriteLine("ID:----------------------:"+id);
+            Console.WriteLine("ID:----------------------:" + id);
             if (dBRepository.DoesTokenExist(parsedAuthenticationToken))
             {
                 if (string.IsNullOrEmpty(id))
@@ -599,6 +608,48 @@ namespace rgueler_mtcg
                     }
                 }
             }
+        }
+
+        void HandleGetCoins(string parsedAuthenticationToken)
+        {
+            Response responseCoins = new Response("GETcoins");
+
+            if (dBRepository.DoesTokenExist(parsedAuthenticationToken))
+            {
+                string username = dBRepository.GetUserName(parsedAuthenticationToken);
+                int output = dBRepository.GetUserCoins(username);
+                response = responseCoins.GetResponseMessage(200) + "user: " + username + " coins: " + output + "\r\n";
+            }
+            else response = responseCoins.GetResponseMessage(401);
+        }
+
+        void HandlePutCoins(string parsedAuthenticationToken)
+        {
+            Response responseCoins = new Response("PUTcoins");
+            if (dBRepository.DoesTokenExist(parsedAuthenticationToken))
+            {
+                DateTime currentDate = DateTime.Now;
+                string username = dBRepository.GetUserName(parsedAuthenticationToken);
+                if (dBRepository.CanUserSpinWheel(username, currentDate))
+                {
+                    // Drehe das Glücksrad und erhalte eine zufällige Anzahl von Münzen
+                    int coinsWon = dBRepository.SpinWheel();
+
+                    // Füge die Münzen dem Benutzer hinzu
+                    dBRepository.AwardCoins(username, coinsWon);
+
+                    // Aktualisiere das Datum der letzten Drehung
+                    dBRepository.UpdateLastSpinDate(username, currentDate);
+
+                    response = responseCoins.GetResponseMessage(200) + "User: " + username + " won: " + coinsWon + "\r\n";
+                }
+                else
+                {
+                    response = responseCoins.GetResponseMessage(410) + "\r\n";
+                }
+
+            }
+            else response = responseCoins.GetResponseMessage(401);
         }
     }
 }

@@ -142,6 +142,21 @@ namespace rgueler_mtcg
                     { 411, "HTTP/1.1 411 DAMAGE TOO LOW\r\nContent-Type: application/json\r\n\r\n{\"message\": \"The Damage of the Provided Card is too low.\"}\r\n" }
                 };
 
+                case "GETcoins":
+                    return new Dictionary<int, string>
+                {
+                    { 200, "HTTP/1.1 200 OKAY\r\nContent-Type: application/json\r\n\r\n{\"message\": \"The coins have been read out successfully.\"}\r\n" },
+                    { 401, "HTTP/1.1 401 TOKEN ERROR\r\nContent-Type: application/json\r\n\r\n{\"message\": \"Access token is missing or invalid\"}\r\n" },
+                };
+
+                case "PUTcoins":
+                    return new Dictionary<int, string>
+                {
+                    { 200, "HTTP/1.1 200 OKAY\r\nContent-Type: application/json\r\n\r\n{\"message\": \"The coins have been added successfully.\"}\r\n" },
+                    { 401, "HTTP/1.1 401 TOKEN ERROR\r\nContent-Type: application/json\r\n\r\n{\"message\": \"Access token is missing or invalid\"}\r\n" },
+                    { 410, "HTTP/1.1 410 ERROR\r\nContent-Type: application/json\r\n\r\n{\"message\": \"Wheel of fortune was already used today\"}\r\n" },
+                };
+
                 default:
                     return new Dictionary<int, string>();
             }
